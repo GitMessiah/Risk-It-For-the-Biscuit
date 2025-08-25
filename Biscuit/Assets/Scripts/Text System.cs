@@ -2,7 +2,7 @@ using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
 using Unity.VisualScripting;
-
+using JetBrains.Annotations;
 
 public class TextSystem : MonoBehaviour
 {
@@ -23,6 +23,8 @@ public class TextSystem : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        textContent = new List<string>();
+
         PlayText("WE love BIG rat TITTIES.|Rats Yum.");
     }
 
@@ -34,17 +36,18 @@ public class TextSystem : MonoBehaviour
 
     public void PlayText(string text)
     {
+        string textDup = text; 
 
         int i = 0;
 
-        while (text.IndexOf("|") != -1)
+        while (textDup.IndexOf("|") != -1)
         {
-            int start = i;
-            i = text.IndexOf("|");
-            textContent.Add(text.Substring(start, i));
+            i = textDup.IndexOf("|");
+            textContent.Add(textDup.Substring(0, i));
+            textDup = textDup.Substring(i + 1, textDup.Length - i - 1);
         }
 
-        textContent.Add(text.Substring(i, textContent.Count));
+        textContent.Add(textDup.Substring(0, textDup.Length));
         
         InvokeRepeating("PlayingText", 3f, textDelay);
     }
@@ -53,7 +56,7 @@ public class TextSystem : MonoBehaviour
     {
         if (numLines == 0)
         {
-            textPlaying = textContent[numLines];
+            textPlaying = textContent[0];
         }
 
 
@@ -70,7 +73,7 @@ public class TextSystem : MonoBehaviour
                 numLines++;
                 textPlaying = textContent[numLines];
                 numLetters = 1;
-            } else if (numLines == textContent.Count)
+            } else if (numLines + 1 == textContent.Count)
             {
                 CancelInvoke("PlayingText");
                 Debug.Log("finished 13 seconds");
