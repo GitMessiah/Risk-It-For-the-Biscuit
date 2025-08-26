@@ -48,11 +48,13 @@ public class TextSystem : MonoBehaviour
         {
             textBackground.SetActive(false);
         }
-
+        
+        /*
         if (Input.GetKeyDown(KeyCode.K)) {
             PlayText("Hi guys!|Im on shrroms rn|:drool:");
             Debug.Log("testing");
         }
+        */
     }
     IEnumerator KeyPressed(float time)
     {

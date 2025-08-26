@@ -11,6 +11,13 @@ public class PlayerController : MonoBehaviour
     public float dodgeTime = 0.2f;
     public float dodgeCooldown = 0.3f;
     public float attackCooldown = 1f;
+    public float secondaryAttackSpeed = 5f;
+    public float wallHitStun = 0.4f;
+    public float maxSecondaryChargeTime = 1f;
+
+    float secondaryCharge = 0;
+    bool secondaryAttackActive = false;
+    
     
 
     Rigidbody2D rb;
@@ -18,18 +25,23 @@ public class PlayerController : MonoBehaviour
     public Camera cam;
 
     public GameObject scratchAttack;
+    public GameObject aimingRetical;
 
     bool movementLock = false;
     bool canDash = true;
     bool canAttack = true;
+    bool aimingReticalActive = false;
 
     Vector2 movement;
     Vector2 mousePos;
+
+    SpriteRenderer aimingRenderer;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        aimingRenderer = aimingRetical.GetComponent<SpriteRenderer>();
     }
 
     // Update is called once per frame
@@ -41,8 +53,30 @@ public class PlayerController : MonoBehaviour
 
         mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
 
+        if (aimingReticalActive)
+            aimingRetical.SetActive(true);
+        else 
+            aimingRetical.SetActive(false);
+
+        aimingRenderer.color = new Color((secondaryCharge) / maxSecondaryChargeTime, 0, 0);
+
         if (Input.GetMouseButton(0)){
             PrimaryAttack();
+        }
+
+        if (Input.GetMouseButton(1) && !movementLock)
+        {
+            secondaryCharge += Time.deltaTime;
+            aimingReticalActive = true;
+            
+        } else
+        {
+            if (secondaryCharge > maxSecondaryChargeTime)
+            {
+                SecondaryAttack();
+            }
+            aimingReticalActive = false;
+            secondaryCharge = 0;
         }
 
         if (Input.GetKeyDown(KeyCode.LeftShift))
@@ -71,22 +105,27 @@ public class PlayerController : MonoBehaviour
 
     void Dodge()
     {
-        StartCoroutine(MovementLock(dodgeTime));
+        StartCoroutine(MovementLock(dodgeTime, true));
         rb.AddForce(movement * dodgeForce, ForceMode2D.Impulse);
     }
 
-    IEnumerator MovementLock(float time)
+    IEnumerator MovementLock(float time, bool resetVelocity)
     {
 
         Debug.Log("run");
 
         movementLock = true;
-        rb.linearVelocityX = 0;
-        rb.linearVelocityY = 0;
+        canDash = false;
+
+        if (resetVelocity)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
 
         yield return new WaitForSeconds(time);
 
         movementLock = false;
+        canDash = true;
     }
 
     private void FixedUpdate()
@@ -94,7 +133,7 @@ public class PlayerController : MonoBehaviour
         
         if (!movementLock)
         {
-            rb.linearVelocity = movement * speed;
+            rb.linearVelocity = movement * speed * Time.deltaTime;
         }
 
         Vector2 lookDir = mousePos - rb.position;
@@ -111,11 +150,21 @@ public class PlayerController : MonoBehaviour
             StartCoroutine(DisableHitbox());
             StartCoroutine(AttackCooldown(attackCooldown));
         }
-
-
-
-
     }
+
+    void SecondaryAttack()
+    {
+
+        Vector2 dashDir = mousePos - rb.position;
+        dashDir.Normalize();
+
+        movementLock = true;
+        canDash = false;
+        secondaryAttackActive = true;
+        rb.linearVelocity = Vector2.zero;
+        rb.AddForce(dashDir * secondaryAttackSpeed);
+    }
+
     IEnumerator AttackCooldown(float time)
     {
         canAttack = false;
@@ -136,7 +185,25 @@ public class PlayerController : MonoBehaviour
 
         scratchAttack.SetActive(false);
     }
-    
+
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (secondaryAttackActive)
+        {
+            if (collision.gameObject.CompareTag("Wall") && secondaryAttackActive)
+            {
+                StartCoroutine(MovementLock(wallHitStun, false));
+                secondaryAttackActive = false;
+            } else if (collision.gameObject.CompareTag("Enemy"))
+            {
+                Debug.Log("Hit enemy with secondary attack");
+                StartCoroutine(MovementLock(wallHitStun, false));
+                secondaryAttackActive = false;
+
+            }
+        }
+    }
 
 
 }
