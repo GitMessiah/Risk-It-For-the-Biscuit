@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Runtime.InteropServices;
+using UnityEditor.Rendering.LookDev;
+using UnityEditor.Tilemaps;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
@@ -17,9 +19,9 @@ public class PlayerController : MonoBehaviour
 
     float secondaryCharge = 0;
     bool secondaryAttackActive = false;
-    
-    
 
+
+    Animator animator;
     Rigidbody2D rb;
 
     public Camera cam;
@@ -36,17 +38,23 @@ public class PlayerController : MonoBehaviour
     Vector2 mousePos;
 
     SpriteRenderer aimingRenderer;
+    SpriteRenderer sprite;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        sprite = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
         aimingRenderer = aimingRetical.GetComponent<SpriteRenderer>();
+        animator = GetComponent<Animator>();      
     }
 
     // Update is called once per frame
     void Update()
     {
+
+        Animations();
+
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
         movement.Normalize();
@@ -81,10 +89,10 @@ public class PlayerController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.LeftShift))
         {
-            if (canDash)
+            if ((movement.x != 0 || movement.y != 0) && canDash)
             {
                 Dodge();
-                StartCoroutine(DashCooldwon(dodgeCooldown));
+                StartCoroutine(DashCooldown(dodgeCooldown));
             }
                 
         }
@@ -92,7 +100,48 @@ public class PlayerController : MonoBehaviour
 
     }
 
-    IEnumerator DashCooldwon(float time)
+
+    void Animations()
+    {
+        if (!secondaryAttackActive && !movementLock)
+        {
+            sprite.flipY = false;
+
+            if (movement.x > 0)
+            {
+                sprite.flipX = false;
+            }
+            if (movement.x < 0)
+            {
+                sprite.flipX = true;
+            }
+
+            if (movement.x != 0)
+            {
+                animator.Play("Player_Run");
+            } else
+            {
+                //transform.localScale = new Vector2(0.06f, 0.06f);
+                animator.Play("Player_Idle_Up");
+            }
+        } else if (secondaryAttackActive)
+        {
+            sprite.flipX = false;
+
+            Debug.Log(rb.rotation);
+
+            if (rb.rotation > 90 || rb.rotation < -90)
+            {
+                sprite.flipY = true;
+            } else
+            {
+                sprite.flipY = false;
+            }
+
+        }
+    }
+
+    IEnumerator DashCooldown(float time)
     {
         canDash = false;
 
@@ -102,10 +151,30 @@ public class PlayerController : MonoBehaviour
 
     }
 
+    
 
     void Dodge()
     {
+        sprite.flipX = false;
+        sprite.flipY = false;
+
+        if (movement.y > 0 && movement.x == 0)
+        {
+            rb.rotation = 90;
+        }
+        else if (movement.y < 0 && movement.x == 0)
+        {
+            rb.rotation = -90;
+        } else if (movement.x < 0)
+        {
+            sprite.flipX = true;
+        }
+
+
+        animator.Play("Player_Dash");
         StartCoroutine(MovementLock(dodgeTime, true));
+
+        
         rb.AddForce(movement * dodgeForce, ForceMode2D.Impulse);
     }
 
@@ -124,8 +193,8 @@ public class PlayerController : MonoBehaviour
 
         yield return new WaitForSeconds(time);
 
+        rb.rotation = 0;
         movementLock = false;
-        canDash = true;
     }
 
     private void FixedUpdate()
@@ -135,10 +204,7 @@ public class PlayerController : MonoBehaviour
         {
             rb.linearVelocity = movement * speed * Time.deltaTime;
         }
-
-        Vector2 lookDir = mousePos - rb.position;
-        float angle = Mathf.Atan2(lookDir.y, lookDir.x) * Mathf.Rad2Deg - 90f;
-        rb.rotation = angle;
+        
     }
 
     void PrimaryAttack()
@@ -154,15 +220,19 @@ public class PlayerController : MonoBehaviour
 
     void SecondaryAttack()
     {
-
-        Vector2 dashDir = mousePos - rb.position;
-        dashDir.Normalize();
-
         movementLock = true;
         canDash = false;
         secondaryAttackActive = true;
+
+        Vector2 dashDir = mousePos - rb.position;
+        dashDir.Normalize();
         rb.linearVelocity = Vector2.zero;
         rb.AddForce(dashDir * secondaryAttackSpeed);
+
+        float angle = Mathf.Atan2(dashDir.y, dashDir.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0, 0, angle);
+
+        animator.Play("Dash_Enter");
     }
 
     IEnumerator AttackCooldown(float time)
@@ -174,11 +244,8 @@ public class PlayerController : MonoBehaviour
         canAttack = true;
     }
     
-
-
     IEnumerator DisableHitbox()
     {
-
         Debug.Log("start");
 
         yield return new WaitForSeconds(attackLength);
@@ -195,15 +262,25 @@ public class PlayerController : MonoBehaviour
             {
                 StartCoroutine(MovementLock(wallHitStun, false));
                 secondaryAttackActive = false;
+                canDash = true;
+                animator.Play("Dash_Exit");
+
             } else if (collision.gameObject.CompareTag("Enemy"))
             {
                 Debug.Log("Hit enemy with secondary attack");
                 StartCoroutine(MovementLock(wallHitStun, false));
                 secondaryAttackActive = false;
-
+                canDash = true;
+                animator.Play("Dash_Exit");
             }
         }
     }
+
+    public void ScaleSet(float scale)
+    {
+        transform.localScale = new Vector2(scale, scale);
+    }
+    
 
 
 }
